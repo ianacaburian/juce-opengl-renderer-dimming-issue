@@ -6,46 +6,47 @@
 //==============================================================================
 
 #define NUM_OGL_COMPONENTS 4
-#define COLOUR_CHANGE_MS 3000
+#define STATE_CHANGE_MS    3000
 
 //==============================================================================
 
 struct OGLComponent
     : public juce::Component
     , public juce::OpenGLRenderer {
-    OGLComponent() {
-        setRepaintsOnMouseActivity(true);
-    }
     auto genColour() const -> juce::Colour {
-        auto const hue    = juce::Random::getSystemRandom().nextFloat();
-        return juce::Colour::fromHSV(hue, 1.f, 1.f, 1.f);
+        auto const h = juce::Random::getSystemRandom().nextFloat();
+        return juce::Colour::fromHSV(h, 1.f, 1.f, 1.f);
     }
     void paint(juce::Graphics &g) override {
         g.setColour(genColour());
-        g.drawRect(getLocalBounds(), 10.f);
+        g.drawRect(getLocalBounds(), 5.f);
+        g.setColour(juce::Colours::black);
+        g.setFont(juce::Font{juce::FontOptions{16.f}});
+        g.drawText("SOLID TEXT", getLocalBounds(), juce::Justification::centred);
     }
     void newOpenGLContextCreated() override {
     }
     void renderOpenGL() override {
         auto const t = juce::Time::getMillisecondCounter();
-        if (t - colourChanged_ >= COLOUR_CHANGE_MS) {
+        if (t - colourChanged_ >= STATE_CHANGE_MS) {
             colourChanged_ = t;
-            fillColour_ = genColour();
+            fillColour_    = genColour();
         }
         juce::OpenGLHelpers::clear(fillColour_);
     }
     void openGLContextClosing() override {
     }
     juce::uint32 colourChanged_ = juce::Time::getMillisecondCounter();
-    juce::Colour fillColour_ = genColour();
+    juce::Colour fillColour_    = genColour();
 };
 
 //==============================================================================
 
-struct Renderer
+struct Canvas
     : public juce::Component
     , public juce::OpenGLRenderer {
-    Renderer() {
+    Canvas() {
+        setPaintingIsUnclipped(true);
         setRepaintsOnMouseActivity(true);
 
         oglContext_.setOpenGLVersionRequired(
@@ -56,19 +57,32 @@ struct Renderer
         oglContext_.setRenderer(this);
         oglContext_.attachTo(*this);
 
+        causeBugBtn_.setPaintingIsUnclipped(true);
+        causeBugBtn_.setClickingTogglesState(true);
+        causeBugBtn_.onClick = [&] {
+            auto const a = causeBugBtn_.getToggleState() ? 1.f : 0.25f;
+            causeBugBtn_.setAlpha(a);
+            for (auto &c : oglChildren_) {
+                c->setVisible(juce::Random::getSystemRandom().nextBool());
+            }
+            repaint();
+        };
+        addAndMakeVisible(causeBugBtn_);
+
         for (auto &c : oglChildren_) {
             c = std::make_unique<OGLComponent>();
+            c->setPaintingIsUnclipped(true);
+            c->setRepaintsOnMouseActivity(true);
             addAndMakeVisible(*c);
         }
     }
-    ~Renderer() override {
+    ~Canvas() override {
         oglContext_.detach();
         oglContext_.setRenderer(nullptr);
     }
-    void paint(juce::Graphics &g) override {
-        g.setColour(juce::Colours::red);
-        g.drawRect(getLocalBounds(), 2.f);
-        auto       b  = getLocalBounds();
+    void resized() override {
+        auto b = getLocalBounds();
+        causeBugBtn_.setBounds(b.removeFromBottom(getHeight() / 4));
         auto const cw = getWidth() / static_cast<int>(oglChildren_.size());
         for (auto &c : oglChildren_) {
             c->setBounds(b.removeFromLeft(cw));
@@ -82,6 +96,14 @@ struct Renderer
     void renderOpenGL() override {
         juce::OpenGLHelpers::clear(juce::Colours::black);
         auto const scale = oglContext_.getRenderingScale();
+
+        auto const t = juce::Time::getMillisecondCounter();
+        if (t - visibilityChanged_ >= STATE_CHANGE_MS) {
+            visibilityChanged_ = t;
+            for (auto &c : oglChildren_) {
+                c->setVisible(juce::Random::getSystemRandom().nextBool());
+            }
+        }
 
         for (auto &c : oglChildren_) {
             if (! c->isVisible()) {
@@ -110,19 +132,18 @@ struct Renderer
 
     juce::OpenGLContext                                           oglContext_;
     std::array<std::unique_ptr<OGLComponent>, NUM_OGL_COMPONENTS> oglChildren_;
+    juce::TextButton causeBugBtn_{"Cause Bug!"};
+    juce::uint32     visibilityChanged_ = juce::Time::getMillisecondCounter();
 };
 
 //==============================================================================
+
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor(
     AudioPluginAudioProcessor &p
 )
     : AudioProcessorEditor(&p)
-    , processorRef(p) {
-    juce::ignoreUnused(processorRef);
-    renderer = std::make_unique<Renderer>();
-    addAndMakeVisible(*renderer);
-    // Make sure that before the constructor has finished, you've set the
-    // editor's size to whatever you need it to be.
+    , canvas_(std::make_unique<Canvas>()) {
+    addAndMakeVisible(*canvas_);
     setSize(400, 300);
 }
 
@@ -133,5 +154,5 @@ AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor() {
 
 void
 AudioPluginAudioProcessorEditor::resized() {
-    renderer->setBounds(getLocalBounds());
+    canvas_->setBounds(getLocalBounds());
 }
