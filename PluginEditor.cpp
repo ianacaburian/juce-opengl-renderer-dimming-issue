@@ -22,7 +22,9 @@ struct OGLComponent
         g.drawRect(getLocalBounds(), 5.f);
         g.setColour(juce::Colours::black);
         g.setFont(juce::Font{juce::FontOptions{16.f}});
-        g.drawText("SOLID TEXT", getLocalBounds(), juce::Justification::centred);
+        g.drawText(
+            "TRANSPARENT?", getLocalBounds(), juce::Justification::centred
+        );
     }
     void newOpenGLContextCreated() override {
     }
@@ -59,9 +61,8 @@ struct Canvas
 
         causeBugBtn_.setPaintingIsUnclipped(true);
         causeBugBtn_.setClickingTogglesState(true);
+        causeBugBtn_.setAlpha(0.5f);
         causeBugBtn_.onClick = [&] {
-            auto const a = causeBugBtn_.getToggleState() ? 1.f : 0.25f;
-            causeBugBtn_.setAlpha(a);
             for (auto &c : oglChildren_) {
                 c->setVisible(juce::Random::getSystemRandom().nextBool());
             }
@@ -132,7 +133,7 @@ struct Canvas
 
     juce::OpenGLContext                                           oglContext_;
     std::array<std::unique_ptr<OGLComponent>, NUM_OGL_COMPONENTS> oglChildren_;
-    juce::TextButton causeBugBtn_{"Cause Bug!"};
+    juce::TextButton causeBugBtn_{"Cause Bug: Text should turn transparent!"};
     juce::uint32     visibilityChanged_ = juce::Time::getMillisecondCounter();
 };
 
