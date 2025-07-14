@@ -1,0 +1,1 @@
+# juce-opengl-renderer-dimming-issue
