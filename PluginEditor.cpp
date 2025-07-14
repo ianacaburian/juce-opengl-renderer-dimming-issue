@@ -23,7 +23,7 @@ struct OGLComponent
         g.setColour(juce::Colours::black);
         g.setFont(juce::Font{juce::FontOptions{16.f}});
         g.drawText(
-            "TRANSPARENT?", getLocalBounds(), juce::Justification::centred
+            "DIMMED?", getLocalBounds(), juce::Justification::centred
         );
     }
     void newOpenGLContextCreated() override {
@@ -133,7 +133,7 @@ struct Canvas
 
     juce::OpenGLContext                                           oglContext_;
     std::array<std::unique_ptr<OGLComponent>, NUM_OGL_COMPONENTS> oglChildren_;
-    juce::TextButton causeBugBtn_{"Cause Bug: Text should turn transparent!"};
+    juce::TextButton causeBugBtn_{"Cause Bug: Text should dim!"};
     juce::uint32     visibilityChanged_ = juce::Time::getMillisecondCounter();
 };
 
